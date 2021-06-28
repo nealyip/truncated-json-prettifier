@@ -22,7 +22,7 @@
         const decodedMessage = message
             .replace(/\\"/g, "\"")
             .replace(/\\\\/g, "\\")
-            .replace(/\\u([\dabcde]{4})/g, (v, a) => String.fromCharCode(parseInt(a, 16)));
+            .replace(/\\u([\dabcdef]{4})/g, (v, a) => String.fromCharCode(parseInt(a, 16)));
         // .replace(/{/g, "{\n  ")
         // .replace(/,"/g, ",\n  \"");
 
