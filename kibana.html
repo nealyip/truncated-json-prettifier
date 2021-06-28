@@ -20,8 +20,15 @@
             <ul style="list-style: none;">
                 <li>
                     <label>
+                        <input type="checkbox" id="parse_query_string_array" oninput="prettyprint()"/>
+                        Decode to an array of string (Enable this option is helpful for spotting duplicate keys in query
+                        string)
+                    </label>
+                </li>
+                <li>
+                    <label>
                         <input type="checkbox" id="parse_query_string_after_decode" oninput="prettyprint()"/>
-                        Decode string and parse query string
+                        Decode uri component
                     </label>
                 </li>
             </ul>
@@ -41,15 +48,20 @@
 <script>
     function prettyprint() {
         const parseQueryStringFlag            = document.querySelector('#parse_query_string').checked;
-        const parseQueryStringFlagAfterDecode = document.querySelector('#parse_query_string_after_decode').checked;
+        const parseQueryStringAfterDecodeFlag = document.querySelector('#parse_query_string_after_decode').checked;
+        const parseQueryStringArrayFlag       = document.querySelector('#parse_query_string_array').checked;
         const forceBreakLinesFlag             = document.querySelector('#force_break_lines').checked;
-        if (parseQueryStringFlagAfterDecode && !parseQueryStringFlag) {
+        if (parseQueryStringAfterDecodeFlag && !parseQueryStringFlag) {
             document.querySelector('#parse_query_string_after_decode').checked = false;
+        }
+        if (parseQueryStringArrayFlag && !parseQueryStringFlag) {
+            document.querySelector('#parse_query_string_array').checked = false;
         }
         saveOptions({
             parse_query_string             : parseQueryStringFlag,
-            parse_query_string_after_decode: parseQueryStringFlagAfterDecode,
-            force_break_lines              : forceBreakLinesFlag
+            parse_query_string_after_decode: parseQueryStringAfterDecodeFlag,
+            force_break_lines              : forceBreakLinesFlag,
+            parse_query_string_array       : parseQueryStringArrayFlag
         });
 
         const truncated = document.querySelector('#truncated').value;
@@ -68,10 +80,10 @@
 
         let parsed = parseBrokenJson(decodedMessage);
         if (parseQueryStringFlag) {
-            if (parseQueryStringFlagAfterDecode) {
+            if (parseQueryStringAfterDecodeFlag) {
                 parsed = decodeURIComponent(parsed)
             }
-            parsed = parseQueryString(parsed);
+            parsed = parseQueryString(parsed, parseQueryStringArrayFlag);
         }
         if (forceBreakLinesFlag) {
             parsed = parsed.replace(/\\n/g, "\n");
@@ -97,13 +109,16 @@
         }
     }
 
-    function parseQueryString(str) {
+    function parseQueryString(str, array) {
         return str.replace(/(?<=\?)(.+=.+)/g, (v, a) => {
-            return JSON.stringify(
-                Array.from((new URLSearchParams(a).entries())).reduce((prev, cur) => ({
-                    ...prev,
-                    [cur[0]]: prev[cur[0]] ? [...prev[cur[0]], cur[1]] : [cur[1]]
-                }), {}), null, 2)
+            if (array) {
+                return JSON.stringify(
+                    Array.from((new URLSearchParams(a).entries())).reduce((prev, cur) => ({
+                        ...prev,
+                        [cur[0]]: prev[cur[0]] ? [...prev[cur[0]], cur[1]] : [cur[1]]
+                    }), {}), null, 2)
+            }
+            return JSON.stringify(Object.fromEntries(new URLSearchParams(a).entries()), null, 2);
         })
     }
 
