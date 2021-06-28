@@ -3,20 +3,60 @@
 <head>
     <meta charset="UTF-8">
     <title>Kibana truncated log prettifier</title>
+    <style>
+        .fix-top {
+            position: sticky;
+            top: 0;
+            background-color: #fff;
+        }
+    </style>
 </head>
 <body>
-<h3>Kibana truncated log prettifier</h3>
-<textarea id="truncated" oninput="prettyprint()"></textarea>
-<div id="prettyprinted">
-    <pre></pre>
-</div>
+<form>
+    <div class="fix-top">
+        <h3>Kibana truncated log prettifier</h3>
+        <div>
+            <label><input type="checkbox" id="parse_query_string" oninput="prettyprint()"/>Parse query string</label>
+            <ul style="list-style: none;">
+                <li>
+                    <label>
+                        <input type="checkbox" id="parse_query_string_after_decode" oninput="prettyprint()"/>
+                        Decode string and parse query string
+                    </label>
+                </li>
+            </ul>
+        </div>
+        <div>
+            <label>
+                <input type="checkbox" id="force_break_lines" oninput="prettyprint()"/>
+                Break lines (\n) even if it's in a string
+            </label>
+        </div>
+        <textarea id="truncated" oninput="prettyprint()" placeholder="Paste the log here."></textarea>
+    </div>
+    <div id="prettyprinted">
+        <pre></pre>
+    </div>
+</form>
 <script>
     function prettyprint() {
+        const parseQueryStringFlag            = document.querySelector('#parse_query_string').checked;
+        const parseQueryStringFlagAfterDecode = document.querySelector('#parse_query_string_after_decode').checked;
+        const forceBreakLinesFlag             = document.querySelector('#force_break_lines').checked;
+        if (parseQueryStringFlagAfterDecode && !parseQueryStringFlag) {
+            document.querySelector('#parse_query_string_after_decode').checked = false;
+        }
+        saveOptions({
+            parse_query_string             : parseQueryStringFlag,
+            parse_query_string_after_decode: parseQueryStringFlagAfterDecode,
+            force_break_lines              : forceBreakLinesFlag
+        });
+
         const truncated = document.querySelector('#truncated').value;
-        let message = truncated;
-        if (truncated.indexOf("{\"@timestamp\"") === 0) {
+        let message     = truncated;
+        if (truncated.replace(/^\s+/, '').indexOf("{\"@timestamp\"") === 0) {
             const messagePos = truncated.indexOf("\"message\":");
-            message    = messagePos > -1 ? truncated.substr(messagePos + 11) : truncated;
+            message          = messagePos > -1 ? truncated.substr(messagePos + 11) : truncated;
         }
 
         const decodedMessage = message
@@ -26,9 +66,45 @@
         // .replace(/{/g, "{\n  ")
         // .replace(/,"/g, ",\n  \"");
 
-        const parsed = parseBrokenJson(decodedMessage);
+        let parsed = parseBrokenJson(decodedMessage);
+        if (parseQueryStringFlag) {
+            if (parseQueryStringFlagAfterDecode) {
+                parsed = decodeURIComponent(parsed)
+            }
+            parsed = parseQueryString(parsed);
+        }
+        if (forceBreakLinesFlag) {
+            parsed = parsed.replace(/\\n/g, "\n");
+        }
 
         document.querySelector('#prettyprinted pre').innerText = parsed;
+    }
+
+    function saveOptions(options) {
+        window.localStorage.setItem('options', JSON.stringify(options));
+
+    }
+
+    function restoreOptions() {
+        let options = window.localStorage.getItem('options') || '{}';
+        try {
+            options = JSON.parse(options);
+            for (const [option, value] of Object.entries(options)) {
+                document.querySelector('#' + option).checked = value;
+            }
+        } catch (e) {
+            saveOptions({});
+        }
+    }
+
+    function parseQueryString(str) {
+        return str.replace(/(?<=\?)(.+=.+)/g, (v, a) => {
+            return JSON.stringify(
+                Array.from((new URLSearchParams(a).entries())).reduce((prev, cur) => ({
+                    ...prev,
+                    [cur[0]]: prev[cur[0]] ? [...prev[cur[0]], cur[1]] : [cur[1]]
+                }), {}), null, 2)
+        })
     }
 
     function parseBrokenJson(str, space = true) {
@@ -67,6 +143,10 @@
         } while (pos <= len);
         return ret;
     }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        restoreOptions();
+    })
 </script>
 </body>
 </html>
