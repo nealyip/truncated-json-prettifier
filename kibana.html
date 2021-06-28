@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Kibana truncated log prettifier</title>
+</head>
+<body>
+<h3>Kibana truncated log prettifier</h3>
+<textarea id="truncated" oninput="prettyprint()"></textarea>
+<div id="prettyprinted">
+    <pre></pre>
+</div>
+<script>
+    function prettyprint() {
+        const truncated = document.querySelector('#truncated').value;
+        const message   = truncated.substr(truncated.indexOf("\"message\":") + 11)
+
+        const decodedMessage = message
+            .replace(/\\"/g, "\"")
+            .replace(/\\\\/g, "\\")
+            .replace(/\\u([\dabcde]{4})/g, (v, a) => String.fromCharCode(parseInt(a, 16)));
+        // .replace(/{/g, "{\n  ")
+        // .replace(/,"/g, ",\n  \"");
+
+        const parsed = parseBrokenJson(decodedMessage);
+
+        document.querySelector('#prettyprinted pre').innerText = parsed;
+    }
+
+    function parseBrokenJson(str, space = true) {
+
+        let pos          = 0;
+        const len        = str.length;
+        let ret          = '';
+        const delimiter  = space ? "  " : "\t";
+        let nestedLevel  = 0;
+        let inString     = false;
+        do {
+            let char = str.charAt(pos++);
+            if (char === '\\') {
+                char += str.charAt(pos++);
+                if (!inString && char === "\\n") {
+                    char += "\n";
+                } else {
+                    ret += char;
+                }
+            } else if (char === "\"") {
+                inString = !inString;
+                ret += char;
+            } else if (inString) {
+                ret += char;
+            } else if (char === '{' || char === '[' || char === '(') {
+                nestedLevel++;
+                ret += char + "\n" + delimiter.repeat(nestedLevel);
+            } else if (char === '}' || char === ']' || char === ')') {
+                nestedLevel--;
+                ret += "\n" + delimiter.repeat(nestedLevel) + char;
+            } else if (char === ',') {
+                ret += char + "\n" + delimiter.repeat(nestedLevel);
+            } else {
+                ret += char;
+            }
+        } while (pos <= len);
+        return ret;
+    }
+</script>
+</body>
+</html>
