@@ -13,7 +13,11 @@
 <script>
     function prettyprint() {
         const truncated = document.querySelector('#truncated').value;
-        const message   = truncated.substr(truncated.indexOf("\"message\":") + 11)
+        let message = truncated;
+        if (truncated.indexOf("{\"@timestamp\"") === 0) {
+            const messagePos = truncated.indexOf("\"message\":");
+            message    = messagePos > -1 ? truncated.substr(messagePos + 11) : truncated;
+        }
 
         const decodedMessage = message
             .replace(/\\"/g, "\"")
@@ -29,12 +33,12 @@
 
     function parseBrokenJson(str, space = true) {
 
-        let pos          = 0;
-        const len        = str.length;
-        let ret          = '';
-        const delimiter  = space ? "  " : "\t";
-        let nestedLevel  = 0;
-        let inString     = false;
+        let pos         = 0;
+        const len       = str.length;
+        let ret         = '';
+        const delimiter = space ? "  " : "\t";
+        let nestedLevel = 0;
+        let inString    = false;
         do {
             let char = str.charAt(pos++);
             if (char === '\\') {
@@ -51,12 +55,12 @@
                 ret += char;
             } else if (char === '{' || char === '[' || char === '(') {
                 nestedLevel++;
-                ret += char + "\n" + delimiter.repeat(nestedLevel);
+                ret += char + "\n" + delimiter.repeat(Math.max(0, nestedLevel));
             } else if (char === '}' || char === ']' || char === ')') {
                 nestedLevel--;
-                ret += "\n" + delimiter.repeat(nestedLevel) + char;
+                ret += "\n" + delimiter.repeat(Math.max(0, nestedLevel)) + char;
             } else if (char === ',') {
-                ret += char + "\n" + delimiter.repeat(nestedLevel);
+                ret += char + "\n" + delimiter.repeat(Math.max(0, nestedLevel));
             } else {
                 ret += char;
             }
