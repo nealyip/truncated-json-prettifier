@@ -110,7 +110,7 @@
     }
 
     function parseQueryString(str, array) {
-        return str.replace(/(?<=\?)(.+=.+)/g, (v, a) => {
+        return str.replace(/(?<=\?)([^"']+=[^"']+)/g, (v, a) => {
             if (array) {
                 return JSON.stringify(
                     Array.from((new URLSearchParams(a).entries())).reduce((prev, cur) => ({
